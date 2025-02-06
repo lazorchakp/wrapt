@@ -71,6 +71,7 @@ static int WraptObjectProxy_raw_init(WraptObjectProxyObject *self,
 {
     static PyObject *module_str = NULL;
     static PyObject *doc_str = NULL;
+    static PyObject *iter_str = NULL;
 
     PyObject *object = NULL;
 
@@ -94,6 +95,14 @@ static int WraptObjectProxy_raw_init(WraptObjectProxyObject *self,
 #endif
     }
 
+    if (!iter_str) {
+#if PY_MAJOR_VERSION >= 3
+        iter_str = PyUnicode_InternFromString("__iter__");
+#else
+        iter_str = PyString_InternFromString("__iter__");
+#endif
+    }
+
     object = PyObject_GetAttr(wrapped, module_str);
 
     if (object) {
@@ -110,6 +119,18 @@ static int WraptObjectProxy_raw_init(WraptObjectProxyObject *self,
 
     if (object) {
         if (PyDict_SetItem(self->dict, doc_str, object) == -1) {
+            Py_DECREF(object);
+            return -1;
+        }
+        Py_DECREF(object);
+    }
+    else
+        PyErr_Clear();
+
+    object = PyObject_GetAttr(wrapped, iter_str);
+
+    if (object) {
+        if (PyDict_SetItem(self->dict, iter_str, object) == -1) {
             Py_DECREF(object);
             return -1;
         }
@@ -1720,18 +1741,6 @@ static PyObject *WraptObjectProxy_richcompare(WraptObjectProxyObject *self,
 
 /* ------------------------------------------------------------------------- */
 
-static PyObject *WraptObjectProxy_iter(WraptObjectProxyObject *self)
-{
-    if (!self->wrapped) {
-      PyErr_SetString(PyExc_ValueError, "wrapper has not been initialized");
-      return NULL;
-    }
-
-    return PyObject_GetIter(self->wrapped);
-}
-
-/* ------------------------------------------------------------------------- */
-
 static PyNumberMethods WraptObjectProxy_as_number = {
     (binaryfunc)WraptObjectProxy_add, /*nb_add*/
     (binaryfunc)WraptObjectProxy_subtract, /*nb_subtract*/
@@ -1888,7 +1897,7 @@ PyTypeObject WraptObjectProxy_Type = {
     (inquiry)WraptObjectProxy_clear, /*tp_clear*/
     (richcmpfunc)WraptObjectProxy_richcompare, /*tp_richcompare*/
     offsetof(WraptObjectProxyObject, weakreflist), /*tp_weaklistoffset*/
-    (getiterfunc)WraptObjectProxy_iter, /*tp_iter*/
+    0,                      /*tp_iter*/
     0,                      /*tp_iternext*/
     WraptObjectProxy_methods, /*tp_methods*/
     0,                      /*tp_members*/
@@ -2923,7 +2932,7 @@ static PyObject *WraptBoundFunctionWrapper_call(
 #endif
     }
 
-    /* 
+    /*
     * We need to do things different depending on whether we are likely
     * wrapping an instance method vs a static method or class method.
     */

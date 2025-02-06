@@ -91,6 +91,16 @@ class ObjectProxy(with_metaclass(_ObjectProxyMetaType)):
         except AttributeError:
             pass
 
+        # Avoid defining __iter__ on the proxy unless it exists on the wrapper
+        # for accurate introspection. This is technically a problem for all
+        # methods defined on ObjectProxy, but it's particularly likely to lead
+        # to issues with __iter__.
+
+        try:
+            object.__setattr__(self, '__iter__', wrapped.__iter__)
+        except AttributeError:
+            pass
+
     def __self_setattr__(self, name, value):
         object.__setattr__(self, name, value)
 
@@ -429,9 +439,6 @@ class ObjectProxy(with_metaclass(_ObjectProxyMetaType)):
     def __exit__(self, *args, **kwargs):
         return self.__wrapped__.__exit__(*args, **kwargs)
 
-    def __iter__(self):
-        return iter(self.__wrapped__)
-
     def __copy__(self):
         raise NotImplementedError('object proxy must define __copy__()')
 
@@ -482,7 +489,7 @@ class PartialCallableObjectProxy(ObjectProxy):
             return self, args
 
         self, args = _unpack_self(*args)
-    
+
         _args = self._self_args + args
 
         _kwargs = dict(self._self_kwargs)
@@ -536,7 +543,7 @@ class _FunctionWrapperBase(ObjectProxy):
 
             if self._self_binding == 'builtin':
                 return self
-            
+
             if self._self_binding == "class":
                 return self
 

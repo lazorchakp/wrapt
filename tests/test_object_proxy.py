@@ -783,9 +783,20 @@ class TestIterObjectProxy(unittest.TestCase):
 
         wrapper = wrapt.ObjectProxy(items)
 
+        self.assertTrue(hasattr(wrapper, "__iter__"))
         result = [x for x in wrapper]
 
         self.assertEqual(result, items)
+
+class TestNonIterableObjectProxy(unittest.TestCase):
+
+    def test_non_iterable(self):
+        def func():
+            pass
+        wrapped_func = wrapt.ObjectProxy(func)
+
+        self.assertFalse(hasattr(func, "__iter__"))
+        self.assertFalse(hasattr(wrapped_func, "__iter__"))
 
 class TestContextManagerObjectProxy(unittest.TestCase):
 
@@ -1854,7 +1865,7 @@ class SpecialMethods(unittest.TestCase):
         self.assertEqual(round(instance), round(proxy))
         self.assertEqual(round(instance, 3), round(proxy, 3))
         self.assertEqual(round(instance, ndigits=3), round(proxy, ndigits=3))
-        
+
 class TestArgumentUnpacking(unittest.TestCase):
 
     def test_self_keyword_argument_on_dict(self):
